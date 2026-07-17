@@ -35,7 +35,7 @@ app.put('/:id', auth, requireRole('manager'), async (c) => {
   const existing = await db.prepare('SELECT id FROM categories WHERE id = ?').bind(id).first()
   if (!existing) return c.json({ error: 'التصنيف غير موجود' }, 404)
   await db.prepare('UPDATE categories SET name = ?, display_order = ? WHERE id = ?')
-    .bind(name, displayOrder || 0, id).run()
+    .bind(validateStr(name, 100), displayOrder || 0, id).run()
   return c.json({ message: 'تم تحديث التصنيف' })
 })
 

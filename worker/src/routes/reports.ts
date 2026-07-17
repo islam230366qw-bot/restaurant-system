@@ -40,8 +40,8 @@ app.get('/sales', auth, requireRole('manager'), async (c) => {
 
     const data = await db.prepare(query).bind(...params).all()
     return c.json(data.results)
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
+  } catch {
+    return c.json({ error: 'خطأ في تحميل التقرير' }, 500)
   }
 })
 
@@ -75,8 +75,8 @@ app.get('/expenses', auth, requireRole('manager'), async (c) => {
 
     const data = await db.prepare(query).bind(...params).all()
     return c.json(data.results)
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
+  } catch {
+    return c.json({ error: 'خطأ في تحميل التقرير' }, 500)
   }
 })
 
@@ -185,8 +185,8 @@ app.get('/customers', auth, requireRole('manager'), async (c) => {
     query += ' ORDER BY customer_name'
     const data = await db.prepare(query).bind(...params).all()
     return c.json(data.results)
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
+  } catch {
+    return c.json({ error: 'خطأ في تحميل التقرير' }, 500)
   }
 })
 
