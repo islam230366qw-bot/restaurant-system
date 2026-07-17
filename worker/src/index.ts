@@ -77,6 +77,8 @@ app.route('/api/upload', uploadRoutes)
 app.route('/api/coupons', couponsRoutes)
 app.route('/api/inventory', inventoryRoutes)
 
+app.get('/', (c) => c.json({ status: 'running', app: 'Restaurant API', frontend: 'https://aff2ce39.restaurant-system-5vy.pages.dev' }))
+
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
 export default app
