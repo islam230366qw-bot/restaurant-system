@@ -1,0 +1,2 @@
+ALTER TABLE orders ADD COLUMN voided INTEGER DEFAULT 0;
+ALTER TABLE orders ADD COLUMN void_reason TEXT;

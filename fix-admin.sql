@@ -1,0 +1,2 @@
+DELETE FROM users WHERE username = 'admin';
+INSERT INTO users (username, password_hash, full_name, role) VALUES ('admin', '$2a$10$WU9g3dOr8W0TnBqCOI3IpOmr/q/eNnu5VrrUv7tPTd9YuZf/QmrFe', 'مدير النظام', 'manager');

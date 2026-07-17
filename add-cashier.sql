@@ -1,0 +1,1 @@
+INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES ('cashier1', '$2a$10$EpQzAXcbBNvgN/mpC94Xt.0WFFmhC6RCvk8QExy8EpGl8IAnpr0Ja', 'كاشير', 'cashier');
