@@ -10,12 +10,12 @@ const bcrypt = require(path.join(__dirname, 'worker', 'node_modules', 'bcryptjs'
 async function main() {
   const password = await ask('ادخل كلمة المرور الجديدة للمدير: ');
   const hash = bcrypt.hashSync(password, 10);
-  const sql = `DELETE FROM users WHERE username = 'admin' OR username = 'admin123';\nINSERT INTO users (username, password_hash, full_name, role) VALUES ('admin', '${hash.replace(/'/g, "''")}', 'مدير النظام', 'manager');`;
+  const sql = `UPDATE users SET password_hash = '${hash.replace(/'/g, "''")}' WHERE role = 'manager' LIMIT 1;`;
   const sqlFile = path.join(__dirname, `_tmp_reset_${Date.now()}.sql`);
   require('fs').writeFileSync(sqlFile, sql, 'utf8');
   try {
     execSync(`npx wrangler d1 execute restaurant-db --remote --file="${sqlFile}"`, { stdio: 'pipe', cwd: __dirname });
-    console.log('\n✅ تم إعادة تعيين مستخدم admin');
+    console.log('\n✅ تم تغيير كلمة سر المدير');
   } catch (e) {
     console.log('فشل:', e.stderr?.toString() || e.message);
   }
