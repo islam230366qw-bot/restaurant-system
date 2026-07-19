@@ -12,51 +12,49 @@ const RATE_LIMIT_MAX = 5
 const RATE_LIMIT_WINDOW_MS = 60_000
 
 async function checkRateLimitD1(db: D1Database, ip: string): Promise<boolean> {
-  const now = Date.now()
-  const windowStart = Math.floor(now / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS
-  await db.exec(`CREATE TABLE IF NOT EXISTS _rate_limits (
-    ip TEXT NOT NULL,
-    window_start INTEGER NOT NULL,
-    count INTEGER DEFAULT 1,
-    PRIMARY KEY (ip, window_start)
-  )`)
-  const row = await db.prepare(
-    'SELECT count FROM _rate_limits WHERE ip = ? AND window_start = ?'
-  ).bind(ip, windowStart).first<{ count: number }>()
-  if (!row) {
+  try {
+    const now = Date.now()
+    const windowStart = Math.floor(now / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS
+    const row = await db.prepare(
+      'SELECT count FROM _rate_limits WHERE ip = ? AND window_start = ?'
+    ).bind(ip, windowStart).first<{ count: number }>()
+    if (!row) {
+      await db.prepare(
+        'INSERT OR REPLACE INTO _rate_limits (ip, window_start, count) VALUES (?, ?, 1)'
+      ).bind(ip, windowStart).run()
+      return true
+    }
+    if (row.count >= RATE_LIMIT_MAX) return false
     await db.prepare(
-      'INSERT OR REPLACE INTO _rate_limits (ip, window_start, count) VALUES (?, ?, 1)'
+      'UPDATE _rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?'
     ).bind(ip, windowStart).run()
     return true
+  } catch (err) {
+    console.error('Rate limit error:', err)
+    return true
   }
-  if (row.count >= RATE_LIMIT_MAX) return false
-  await db.prepare(
-    'UPDATE _rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?'
-  ).bind(ip, windowStart).run()
-  return true
 }
 
 const REFRESH_RATE_LIMIT_MAX = 10
 const REFRESH_RATE_LIMIT_WINDOW_MS = 60_000
 
 async function checkRefreshRateLimit(db: D1Database, ip: string): Promise<boolean> {
-  const windowStart = Math.floor(Date.now() / REFRESH_RATE_LIMIT_WINDOW_MS) * REFRESH_RATE_LIMIT_WINDOW_MS
-  await db.exec(`CREATE TABLE IF NOT EXISTS _refresh_rate_limits (
-    ip TEXT NOT NULL,
-    window_start INTEGER NOT NULL,
-    count INTEGER DEFAULT 1,
-    PRIMARY KEY (ip, window_start)
-  )`)
-  const row = await db.prepare(
-    'SELECT count FROM _refresh_rate_limits WHERE ip = ? AND window_start = ?'
-  ).bind(ip, windowStart).first<{ count: number }>()
-  if (!row) {
-    await db.prepare('INSERT OR REPLACE INTO _refresh_rate_limits (ip, window_start, count) VALUES (?, ?, 1)').bind(ip, windowStart).run()
+  try {
+    const windowStart = Math.floor(Date.now() / REFRESH_RATE_LIMIT_WINDOW_MS) * REFRESH_RATE_LIMIT_WINDOW_MS
+    const row = await db.prepare(
+      'SELECT count FROM _refresh_rate_limits WHERE ip = ? AND window_start = ?'
+    ).bind(ip, windowStart).first<{ count: number }>()
+    if (!row) {
+      await db.prepare('INSERT OR REPLACE INTO _refresh_rate_limits (ip, window_start, count) VALUES (?, ?, 1)').bind(ip, windowStart).run()
+      return true
+    }
+    if (row.count >= REFRESH_RATE_LIMIT_MAX) return false
+    await db.prepare('UPDATE _refresh_rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?').bind(ip, windowStart).run()
+    return true
+  } catch (err) {
+    console.error('Refresh rate limit error:', err)
     return true
   }
-  if (row.count >= REFRESH_RATE_LIMIT_MAX) return false
-  await db.prepare('UPDATE _refresh_rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?').bind(ip, windowStart).run()
-  return true
 }
 
 function validatePassword(pw: string): string | null {

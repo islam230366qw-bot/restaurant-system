@@ -113,6 +113,21 @@ CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expire
     name: 'migration11',
     sql: `ALTER TABLE order_items ADD COLUMN option_name_snapshot TEXT;`
   },
+  {
+    name: 'migration12',
+    sql: `CREATE TABLE IF NOT EXISTS _rate_limits (
+  ip TEXT NOT NULL,
+  window_start INTEGER NOT NULL,
+  count INTEGER DEFAULT 1,
+  PRIMARY KEY (ip, window_start)
+);
+CREATE TABLE IF NOT EXISTS _refresh_rate_limits (
+  ip TEXT NOT NULL,
+  window_start INTEGER NOT NULL,
+  count INTEGER DEFAULT 1,
+  PRIMARY KEY (ip, window_start)
+);`
+  },
 ]
 
 export async function autoMigrate(env: Env): Promise<void> {
