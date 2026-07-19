@@ -33,8 +33,16 @@ app.get('/', auth, requireRole('manager'), async (c) => {
 
   query += ' ORDER BY sp.paid_date DESC'
 
+  const limit = Math.min(500, Math.max(1, parseInt(c.req.query('limit') || '100') || 100))
+  const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1)
+  query += ' LIMIT ? OFFSET ?'
+  params.push(limit, (page - 1) * limit)
   const payments = await db.prepare(query).bind(...params).all()
-  return c.json(payments.results)
+
+  const countParams = params.slice(0, -2)
+  const countQuery = `SELECT COUNT(*) as total FROM salary_payments sp` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '')
+  const countResult = await db.prepare(countQuery).bind(...countParams).first<{ total: number }>()
+  return c.json({ data: payments.results, total: countResult?.total || 0, page, limit })
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {

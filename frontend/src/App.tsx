@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { ToastProvider } from './components/Toast'
+import ErrorBoundary from './components/ErrorBoundary'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -31,6 +32,7 @@ function App() {
 
   return (
     <ToastProvider>
+      <ErrorBoundary>
       <Routes>
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
@@ -68,6 +70,7 @@ function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/subscription-expired" element={<SubscriptionExpired />} />
     </Routes>
+      </ErrorBoundary>
     </ToastProvider>
   )
 }

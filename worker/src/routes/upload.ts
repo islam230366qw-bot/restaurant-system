@@ -31,7 +31,7 @@ app.post('/', auth, requireRole('manager'), async (c) => {
   return c.json({ key, message: 'تم رفع الصورة بنجاح' })
 })
 
-app.get('/:key', async (c) => {
+app.get('/:key', auth, requireRole('manager'), async (c) => {
   const bucket = c.env.RESTAURANT_IMAGES
   if (!bucket) return c.json({ error: 'مخزن الصور غير مفعل' }, 501)
 

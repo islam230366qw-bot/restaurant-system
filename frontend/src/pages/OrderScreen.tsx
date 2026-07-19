@@ -43,9 +43,9 @@ export default function OrderScreen() {
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const ac = new AbortController()
-    loadData()
-    return () => ac.abort()
+    let mounted = true
+    loadData().then(() => { if (!mounted) return }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   const loadData = async () => {

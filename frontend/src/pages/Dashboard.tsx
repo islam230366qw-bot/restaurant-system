@@ -27,9 +27,9 @@ export default function Dashboard() {
   const [customMode, setCustomMode] = useState(false)
 
   useEffect(() => {
-    const ac = new AbortController()
-    loadData()
-    return () => ac.abort()
+    let mounted = true
+    loadData().then(() => { if (!mounted) return }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   const loadData = async (start?: string, end?: string) => {
@@ -59,6 +59,7 @@ export default function Dashboard() {
         setPaymentData(payments || [])
       }
     } catch (err: any) {
+      console.error('Dashboard loadData error:', err)
       toast(err.message || 'فشل تحميل الداش بورد', 'error')
     } finally {
       setLoading(false)

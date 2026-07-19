@@ -36,8 +36,8 @@ app.post('/', auth, requireRole('manager'), async (c) => {
   const body = await c.req.json()
   const { name, nameEn, description, price, categoryId, options, isAvailable, inventoryItemId, imageUrl } = body
 
-  if (!name || price === undefined) {
-    return c.json({ error: 'اسم الصنف والسعر مطلوبان' }, 400)
+  if (!name || price === undefined || price < 0) {
+    return c.json({ error: 'اسم الصنف والسعر مطلوب (يجب أن يكون السعر أكبر من صفر)' }, 400)
   }
 
   const db = getDB(c.env)
@@ -61,7 +61,7 @@ app.post('/', auth, requireRole('manager'), async (c) => {
 
 app.put('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const body = await c.req.json()
   const { name, nameEn, description, price, categoryId, options, isAvailable, inventoryItemId, imageUrl } = body
 
@@ -91,7 +91,7 @@ app.put('/:id', auth, requireRole('manager'), async (c) => {
 
 app.delete('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM menu_items WHERE id = ?').bind(id).first()
   if (!existing) return c.json({ error: 'الصنف غير موجود' }, 404)
@@ -101,7 +101,7 @@ app.delete('/:id', auth, requireRole('manager'), async (c) => {
 
 app.patch('/:id/availability', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const { isAvailable } = await c.req.json()
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM menu_items WHERE id = ?').bind(id).first()

@@ -41,5 +41,7 @@ export async function autoMigrate(env: Env): Promise<void> {
     }
 
     migrated = true
-  } catch {}
+  } catch (err) {
+    console.error('Migration error:', err)
+  }
 }

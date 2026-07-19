@@ -8,19 +8,31 @@ import { getDB } from '../db'
 
 const app = new Hono<{ Bindings: Env }>()
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_MAX = 5
-const RATE_LIMIT_WINDOW = 60_000
+const RATE_LIMIT_WINDOW_MS = 60_000
 
-function checkRateLimit(ip: string): boolean {
+async function checkRateLimitD1(db: D1Database, ip: string): Promise<boolean> {
   const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW })
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  await db.exec(`CREATE TABLE IF NOT EXISTS _rate_limits (
+    ip TEXT NOT NULL,
+    window_start INTEGER NOT NULL,
+    count INTEGER DEFAULT 1,
+    PRIMARY KEY (ip, window_start)
+  )`)
+  const row = await db.prepare(
+    'SELECT count FROM _rate_limits WHERE ip = ? AND window_start > ?'
+  ).bind(ip, windowStart).first<{ count: number }>()
+  if (!row) {
+    await db.prepare(
+      'INSERT OR REPLACE INTO _rate_limits (ip, window_start, count) VALUES (?, ?, 1)'
+    ).bind(ip, windowStart).run()
     return true
   }
-  if (entry.count >= RATE_LIMIT_MAX) return false
-  entry.count++
+  if (row.count >= RATE_LIMIT_MAX) return false
+  await db.prepare(
+    'UPDATE _rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?'
+  ).bind(ip, windowStart).run()
   return true
 }
 
@@ -70,7 +82,8 @@ async function signRefreshToken(userId: number, jti: string, secret: Uint8Array)
 
 app.post('/login', async (c) => {
   const ip = c.req.header('CF-Connecting-IP') || c.req.header('x-forwarded-for') || 'unknown'
-  if (!checkRateLimit(ip)) {
+  const db = getDB(c.env)
+  if (!await checkRateLimitD1(db, ip)) {
     return c.json({ error: 'محاولات كثيرة جداً. حاول بعد دقيقة' }, 429)
   }
 
@@ -79,7 +92,6 @@ app.post('/login', async (c) => {
     return c.json({ error: 'يرجى إدخال اسم المستخدم وكلمة المرور' }, 400)
   }
 
-  const db = getDB(c.env)
   const user = await db.prepare(
     'SELECT id, username, password_hash, full_name, role, is_active FROM users WHERE username = ?'
   ).bind(username).first<{ id: number; username: string; password_hash: string; full_name: string; role: string; is_active: number }>()
@@ -218,7 +230,9 @@ app.post('/logout', auth, async (c) => {
           'INSERT OR IGNORE INTO token_blacklist (jti, token_type, expires_at) VALUES (?, ?, ?)'
         ).bind(refreshJti, 'refresh', expiresAt).run()
       }
-    } catch {}
+    } catch (err) {
+      console.error('Logout token verification error:', err)
+    }
   }
 
   c.header('Set-Cookie', 'refresh_token=; HttpOnly; Secure; SameSite=None; Path=/api/auth; Max-Age=0; Partitioned')

@@ -125,29 +125,31 @@ app.get('/end-of-day', auth, requireRole('manager'), async (c) => {
     const restaurantName = settings?.restaurant_name || 'مطعم'
     const logoUrl = settings?.logo_url || ''
 
-    let dc = "date(o.created_at) = date('now')"
-    let ec = "e.expense_date = date('now')"
-    let sc = "sp.paid_date = date('now')"
-    const p: string[] = []
+    const today = new Date().toISOString().split('T')[0]
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const nextDay = tomorrow.toISOString().split('T')[0]
+    const params: (string | number)[] = []
+    let where = ''
     if (startDate && endDate) {
-      dc = "date(o.created_at) >= ?1 AND date(o.created_at) <= ?2"
-      ec = "e.expense_date >= ?1 AND e.expense_date <= ?2"
-      sc = "sp.paid_date >= ?1 AND sp.paid_date <= ?2"
-      p.push(startDate, endDate)
+      where = 'o.created_at >= ? AND o.created_at <= ?'
+      params.push(startDate, endDate + ' 23:59:59')
     } else if (startDate) {
-      dc = "date(o.created_at) = ?1"
-      ec = "e.expense_date = ?1"
-      sc = "sp.paid_date = ?1"
-      p.push(startDate)
+      where = 'o.created_at >= ? AND o.created_at < ?'
+      params.push(startDate, nextDay)
+    } else {
+      where = 'o.created_at >= ? AND o.created_at < ?'
+      params.push(today, nextDay)
     }
 
-    const r1 = await db.prepare(`SELECT COUNT(*) as order_count, COALESCE(SUM(grand_total),0) as total_sales, COALESCE(SUM(subtotal),0) as subtotal, COALESCE(SUM(service_amount),0) as service_amount, COALESCE(SUM(tax_amount),0) as tax_amount, COALESCE(SUM(discount_amount),0) as discount_amount FROM orders o WHERE ${dc} AND voided=0`).bind(...p).first<any>()
-    const r2 = await db.prepare(`SELECT COUNT(*) as void_count, COALESCE(SUM(grand_total),0) as voided_total FROM orders o WHERE ${dc} AND voided=1`).bind(...p).first<any>()
-    const r3 = await db.prepare(`SELECT COALESCE(SUM(amount),0) as total_expenses FROM expenses e WHERE ${ec}`).bind(...p).first<any>()
-    const r4 = await db.prepare(`SELECT COALESCE(SUM(amount),0) as total_salaries FROM salary_payments sp WHERE ${sc}`).bind(...p).first<any>()
-    const r5 = await db.prepare(`SELECT payment_method, COUNT(*) as count, SUM(grand_total) as total FROM orders o WHERE ${dc} AND voided=0 GROUP BY payment_method`).bind(...p).all()
-    const r6 = await db.prepare(`SELECT oi.item_name_snapshot as name, SUM(oi.quantity) as qty, SUM(oi.subtotal) as total FROM order_items oi JOIN orders o ON oi.order_id=o.id WHERE ${dc} AND o.voided=0 GROUP BY oi.item_name_snapshot ORDER BY qty DESC LIMIT 10`).bind(...p).all()
-    const r7 = await db.prepare(`SELECT o.id, o.customer_name, o.customer_phone, o.payment_method, o.grand_total, o.created_at, u.full_name as created_by_name FROM orders o LEFT JOIN users u ON o.created_by=u.id WHERE ${dc} ORDER BY o.created_at DESC LIMIT 20`).bind(...p).all()
+    const ew = where.replaceAll('o.', 'e.').replaceAll('created_at', 'expense_date')
+    const sw = where.replaceAll('o.', 'sp.').replaceAll('created_at', 'paid_date')
+
+    const r1 = await db.prepare(`SELECT COUNT(*) as order_count, COALESCE(SUM(grand_total),0) as total_sales, COALESCE(SUM(subtotal),0) as subtotal, COALESCE(SUM(service_amount),0) as service_amount, COALESCE(SUM(tax_amount),0) as tax_amount, COALESCE(SUM(discount_amount),0) as discount_amount FROM orders o WHERE ${where} AND voided=0`).bind(...params).first<any>()
+    const r2 = await db.prepare(`SELECT COUNT(*) as void_count, COALESCE(SUM(grand_total),0) as voided_total FROM orders o WHERE ${where} AND voided=1`).bind(...params).first<any>()
+    const r3 = await db.prepare(`SELECT COALESCE(SUM(amount),0) as total_expenses FROM expenses e WHERE ${ew}`).bind(...params).first<any>()
+    const r4 = await db.prepare(`SELECT COALESCE(SUM(amount),0) as total_salaries FROM salary_payments sp WHERE ${sw}`).bind(...params).first<any>()
+    const r5 = await db.prepare(`SELECT payment_method, COUNT(*) as count, SUM(grand_total) as total FROM orders o WHERE ${where} AND voided=0 GROUP BY payment_method`).bind(...params).all()
+    const r6 = await db.prepare(`SELECT oi.item_name_snapshot as name, SUM(oi.quantity) as qty, SUM(oi.subtotal) as total FROM order_items oi JOIN orders o ON oi.order_id=o.id WHERE ${where} AND o.voided=0 GROUP BY oi.item_name_snapshot ORDER BY qty DESC LIMIT 10`).bind(...params).all()
+    const r7 = await db.prepare(`SELECT o.id, o.customer_name, o.customer_phone, o.payment_method, o.grand_total, o.created_at, u.full_name as created_by_name FROM orders o LEFT JOIN users u ON o.created_by=u.id WHERE ${where} ORDER BY o.created_at DESC LIMIT 20`).bind(...params).all()
 
     return c.json({
       date: day,

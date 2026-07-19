@@ -233,7 +233,7 @@ export default function InvoicePrint({ data, onClose }: { data: InvoiceData; onC
         <div ref={printRef} className="text-center">
           <p className="text-3xl font-bold text-green-700 mb-4">{fmt(data.grandTotal)} ج.م</p>
           <p className="text-gray-500 mb-2">رقم الفاتورة: #{data.orderId}</p>
-          <p className="text-gray-500 mb-2">العميل: {data.customerName}</p>
+          <p className="text-gray-500 mb-2">العميل: {esc(data.customerName)}</p>
           <p className="text-gray-500 mb-6">الكاشير: {data.cashierName}</p>
 
           {printerStatus && (

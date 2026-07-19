@@ -43,7 +43,7 @@ app.post('/', auth, requireRole('manager'), async (c) => {
 
 app.put('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const { name, category, quantity, unit, minQuantity, unitCost, supplier } = await c.req.json()
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM inventory WHERE id = ?').bind(id).first()
@@ -56,7 +56,7 @@ app.put('/:id', auth, requireRole('manager'), async (c) => {
 
 app.post('/:id/adjust', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const { changeType, quantityChange, note } = await c.req.json()
   if (!changeType || quantityChange === undefined) {
     return c.json({ error: 'نوع التغيير والكمية مطلوبان' }, 400)
@@ -78,7 +78,7 @@ app.post('/:id/adjust', auth, requireRole('manager'), async (c) => {
 
 app.get('/:id/log', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
   const { results } = await db.prepare(
     'SELECT l.*, u.full_name as created_by_name FROM inventory_log l LEFT JOIN users u ON l.created_by = u.id WHERE l.item_id = ? ORDER BY l.created_at DESC LIMIT 50'
@@ -88,7 +88,7 @@ app.get('/:id/log', auth, requireRole('manager'), async (c) => {
 
 app.delete('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM inventory WHERE id = ?').bind(id).first()
   if (!existing) return c.json({ error: 'الصنف غير موجود' }, 404)

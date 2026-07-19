@@ -60,7 +60,7 @@ export default function MenuManagement() {
       setMenuItems(items)
       setInventoryItems(inv)
       if (cats.length > 0) setActiveCategory(cats[0].id)
-    } catch {
+    } catch (err) { console.error('Menu load error:', err)
     } finally {
       setLoading(false)
     }

@@ -27,8 +27,20 @@ export default function Register() {
       return
     }
 
-    if (password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل')
+    if (password.length < 10) {
+      setError('كلمة المرور يجب أن تكون 10 أحرف على الأقل')
+      return
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل')
+      return
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل')
+      return
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('كلمة المرور يجب أن تحتوي على رقم واحد على الأقل')
       return
     }
 
@@ -101,9 +113,9 @@ export default function Register() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input-field"
-              placeholder="6 أحرف على الأقل"
+              placeholder="10 أحرف على الأقل"
               required
-              minLength={6}
+              minLength={10}
             />
           </div>
 

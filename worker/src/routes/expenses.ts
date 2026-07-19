@@ -38,8 +38,16 @@ app.get('/', auth, requireRole('manager'), async (c) => {
 
   query += ' ORDER BY e.expense_date DESC, e.created_at DESC'
 
+  const limit = Math.min(500, Math.max(1, parseInt(c.req.query('limit') || '100') || 100))
+  const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1)
+  query += ' LIMIT ? OFFSET ?'
+  params.push(limit, (page - 1) * limit)
   const expenses = await db.prepare(query).bind(...params).all()
-  return c.json(expenses.results)
+
+  const countQuery = `SELECT COUNT(*) as total FROM expenses e` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '')
+  const countParams = params.slice(0, -2)
+  const countResult = await db.prepare(countQuery).bind(...countParams).first<{ total: number }>()
+  return c.json({ data: expenses.results, total: countResult?.total || 0, page, limit })
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {
@@ -61,7 +69,7 @@ app.post('/', auth, requireRole('manager'), async (c) => {
 
 app.put('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const { category, amount, expenseDate, description } = await c.req.json()
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM expenses WHERE id = ?').bind(id).first()
@@ -76,7 +84,7 @@ app.put('/:id', auth, requireRole('manager'), async (c) => {
 
 app.delete('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM expenses WHERE id = ?').bind(id).first()
   if (!existing) return c.json({ error: 'المصروف غير موجود' }, 404)

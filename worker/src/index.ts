@@ -52,7 +52,7 @@ app.use('/api/*', rateLimit(60, 60_000))
 
 app.use('/api/*', async (c, next) => {
   const db = c.env.DB
-  try { await db.exec('PRAGMA foreign_keys = ON') } catch {}
+  try { await db.exec('PRAGMA foreign_keys = ON') } catch (err) { console.error('PRAGMA foreign_keys error:', err) }
   await autoMigrate(c.env)
   await next()
 })

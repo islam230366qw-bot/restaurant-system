@@ -82,7 +82,7 @@ function EndOfDayReport() {
     }
   }
 
-  useEffect(() => { const ac = new AbortController(); refresh(); return () => ac.abort() }, [startDate, endDate])
+  useEffect(() => { let mounted = true; refresh().then(() => { if (!mounted) return }).catch(() => {}); return () => { mounted = false } }, [startDate, endDate])
 
   const dateLabel = startDate === endDate ? startDate : `${startDate} - ${endDate}`
 

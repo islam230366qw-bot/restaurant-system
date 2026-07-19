@@ -33,15 +33,16 @@ export default function Layout() {
   const links = user?.role === 'manager' ? managerLinks : cashierLinks
 
   useEffect(() => {
-    api.settings.get().then((s: any) => setLogoUrl(s.logo_url || '')).catch(() => {})
+    api.settings.get().then((s: any) => setLogoUrl(s.logo_url || '')).catch((err) => console.error('Failed to load settings:', err))
   }, [location.pathname])
 
   useEffect(() => {
-    const ac = new AbortController()
-    if (user?.role !== 'manager') return
-    api.inventory.getLowStock().then((res: any) => setLowStockCount(res?.length || 0)).catch(() => {})
-    api.auth.getUsers().then((res: any) => setPendingUsersCount(res?.filter((u: any) => !u.is_active && u.role === 'cashier')?.length || 0)).catch(() => {})
-    return () => ac.abort()
+    let mounted = true
+    if (user?.role === 'manager') {
+      api.inventory.getLowStock().then((res: any) => { if (mounted) setLowStockCount(res?.length || 0) }).catch(() => {})
+      api.auth.getUsers().then((res: any) => { if (mounted) setPendingUsersCount(res?.filter((u: any) => !u.is_active && u.role === 'cashier')?.length || 0) }).catch(() => {})
+    }
+    return () => { mounted = false }
   }, [])
 
   const handleLogout = () => {

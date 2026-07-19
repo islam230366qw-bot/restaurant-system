@@ -48,26 +48,24 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
   }[] = []
 
   for (const item of items) {
-    const menuItem = await db.prepare(
-      'SELECT id, name, price FROM menu_items WHERE id = ? AND is_available = 1'
-    ).bind(item.menuItemId).first<{ id: number; name: string; price: number }>()
+    const quantity = Math.max(1, item.quantity || 1)
+    let unitPrice = item.price || 0
+    let itemName = item.name || ''
+    if (!itemName || !unitPrice) {
+      const menuItem = await db.prepare(
+        'SELECT id, name, price, options FROM menu_items WHERE id = ? AND is_available = 1'
+      ).bind(item.menuItemId).first<{ id: number; name: string; price: number; options: string }>()
 
-    if (!menuItem) {
-      return c.json({ error: `الصنف رقم ${item.menuItemId} غير موجود أو غير متاح` }, 400)
-    }
+      if (!menuItem) {
+        return c.json({ error: `الصنف رقم ${item.menuItemId} غير موجود أو غير متاح` }, 400)
+      }
+      itemName = menuItem.name
+      unitPrice = menuItem.price
 
-    const quantity = item.quantity || 1
-    let unitPrice = menuItem.price
-
-    if (item.optionName) {
-      const optionData = await db.prepare(
-        'SELECT options FROM menu_items WHERE id = ?'
-      ).bind(item.menuItemId).first<{ options: string }>()
-
-      if (optionData && optionData.options) {
-        const options = JSON.parse(optionData.options)
+      if (item.optionName && menuItem.options) {
+        const options = JSON.parse(menuItem.options)
         const selectedOption = options.find((o: { name: string }) => o.name === item.optionName)
-        if (selectedOption && selectedOption.price) {
+        if (selectedOption?.price) {
           unitPrice = selectedOption.price
         }
       }
@@ -77,8 +75,8 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
     subtotal += itemSubtotal
 
     orderItemsData.push({
-      menuItemId: menuItem.id,
-      itemNameSnapshot: menuItem.name,
+      menuItemId: item.menuItemId,
+      itemNameSnapshot: itemName,
       unitPriceSnapshot: unitPrice,
       quantity,
       subtotal: itemSubtotal,
@@ -110,20 +108,16 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
     ).bind(couponCode.toUpperCase()).first<{ id: number; discount_type: string; discount_value: number; min_order: number; max_uses: number; used_count: number }>()
 
     if (coupon && subtotal >= coupon.min_order) {
-      if (coupon.max_uses > 0) {
-        const updateResult = await db.prepare(
-          'UPDATE coupons SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses'
-        ).bind(coupon.id).run()
-        if (updateResult.meta.changes === 0) {
-          return c.json({ error: 'الكوبون وصل للحد الأقصى من الاستخدامات' }, 400)
-        }
-      } else {
-        await db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?').bind(coupon.id).run()
+      const updateResult = await db.prepare(
+        'UPDATE coupons SET used_count = used_count + 1 WHERE id = ? AND (max_uses = 0 OR used_count < max_uses)'
+      ).bind(coupon.id).run()
+      if (updateResult.meta.changes === 0) {
+        return c.json({ error: 'الكوبون وصل للحد الأقصى من الاستخدامات' }, 400)
       }
       appliedCouponCode = couponCode.toUpperCase()
       discountType = coupon.discount_type
       discountAmount = coupon.discount_type === 'percentage'
-        ? grandTotal * (coupon.discount_value / 100)
+        ? subtotal * (coupon.discount_value / 100)
         : coupon.discount_value
       if (discountAmount > grandTotal) discountAmount = grandTotal
     }
@@ -151,6 +145,26 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
 
   const orderId = orderResult.meta.last_row_id
 
+  const invItemIds = [...new Set(orderItemsData.map(d => d.menuItemId))]
+  const invPlaceholders = invItemIds.map(() => '?').join(',')
+  const invItems = await db.prepare(
+    `SELECT id as menu_id, inventory_item_id FROM menu_items WHERE id IN (${invPlaceholders}) AND inventory_item_id IS NOT NULL`
+  ).bind(...invItemIds).all()
+  const invMap = new Map<number, number>()
+  for (const row of (invItems.results || []) as any[]) {
+    invMap.set(row.menu_id, row.inventory_item_id)
+  }
+
+  const invIds = [...new Set(invMap.values())]
+  const invQ = invIds.map(() => '?').join(',')
+  const invData = invIds.length > 0
+    ? await db.prepare(`SELECT id, quantity FROM inventory WHERE id IN (${invQ})`).bind(...invIds).all()
+    : { results: [] }
+  const qtyMap = new Map<number, number>()
+  for (const row of (invData.results || []) as any[]) {
+    qtyMap.set(row.id, row.quantity)
+  }
+
   const batchStmts: D1PreparedStatement[] = []
   for (const itemData of orderItemsData) {
     batchStmts.push(
@@ -167,20 +181,20 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
       )
     )
 
-    const menuItem = await db.prepare('SELECT inventory_item_id FROM menu_items WHERE id = ?').bind(itemData.menuItemId).first<{ inventory_item_id: number | null }>()
-    if (menuItem?.inventory_item_id) {
-      const inv = await db.prepare('SELECT id, quantity FROM inventory WHERE id = ?').bind(menuItem.inventory_item_id).first<{ id: number; quantity: number }>()
-      if (inv) {
-        const totalNeeded = itemData.quantity
-        batchStmts.push(
-          db.prepare('UPDATE inventory SET quantity = quantity - ?, updated_at = datetime(\'now\') WHERE id = ?').bind(totalNeeded, menuItem.inventory_item_id)
-        )
-        batchStmts.push(
-          db.prepare(
-            'INSERT INTO inventory_log (item_id, change_type, quantity_change, quantity_before, quantity_after, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          ).bind(menuItem.inventory_item_id, 'remove', totalNeeded, inv.quantity, inv.quantity - totalNeeded, `خصم تلقائي للطلب #${orderId}`, userId)
-        )
-      }
+    const invItemId = invMap.get(itemData.menuItemId)
+    if (invItemId) {
+      const currentQty = qtyMap.get(invItemId) ?? 0
+      const totalNeeded = itemData.quantity
+      batchStmts.push(
+        db.prepare(
+          'UPDATE inventory SET quantity = quantity - ?, updated_at = datetime(\'now\') WHERE id = ? AND quantity >= ?'
+        ).bind(totalNeeded, invItemId, totalNeeded)
+      )
+      batchStmts.push(
+        db.prepare(
+          'INSERT INTO inventory_log (item_id, change_type, quantity_change, quantity_before, quantity_after, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(invItemId, 'remove', totalNeeded, currentQty, Math.max(0, currentQty - totalNeeded), `خصم تلقائي للطلب #${orderId}`, userId)
+      )
     }
   }
 

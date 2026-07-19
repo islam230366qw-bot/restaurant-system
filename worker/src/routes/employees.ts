@@ -9,10 +9,13 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.get('/', auth, requireRole('manager'), async (c) => {
   const db = getDB(c.env)
+  const limit = Math.min(500, Math.max(1, parseInt(c.req.query('limit') || '100') || 100))
+  const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1)
   const employees = await db.prepare(
-    'SELECT * FROM employees ORDER BY is_active DESC, full_name'
-  ).all()
-  return c.json(employees.results)
+    'SELECT * FROM employees ORDER BY is_active DESC, full_name LIMIT ? OFFSET ?'
+  ).bind(limit, (page - 1) * limit).all()
+  const countResult = await db.prepare('SELECT COUNT(*) as total FROM employees').first<{ total: number }>()
+  return c.json({ data: employees.results, total: countResult?.total || 0, page, limit })
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {
@@ -32,7 +35,7 @@ app.post('/', auth, requireRole('manager'), async (c) => {
 
 app.put('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const { fullName, position, monthlySalary, hireDate, isActive } = await c.req.json()
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first()
@@ -47,7 +50,7 @@ app.put('/:id', auth, requireRole('manager'), async (c) => {
 
 app.delete('/:id', auth, requireRole('manager'), async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (!id) return c.json({ error: 'معرف غير صالح' }, 400)
+  if (isNaN(id) || id < 1) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
   const existing = await db.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first()
   if (!existing) return c.json({ error: 'الموظف غير موجود' }, 404)

@@ -22,7 +22,7 @@ export async function validateContentType(c: Context<{ Bindings: Env }>, next: N
     const contentType = c.req.header('Content-Type') || ''
     const isFormData = contentType.includes('multipart/form-data')
     const isJson = contentType.includes('application/json')
-    if (!isFormData && !isJson && contentType !== '') {
+    if (!isFormData && !isJson) {
       return c.json({ error: 'نوع المحتوى غير مدعوم' }, 415)
     }
   }
