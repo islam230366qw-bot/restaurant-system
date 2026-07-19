@@ -35,6 +35,6 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
   c.header('X-Frame-Options', 'DENY')
   c.header('X-XSS-Protection', '0')
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
-  c.header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://restaurant-api.restaurant-system-api.workers.dev; frame-src 'none'; object-src 'none'")
+  c.header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://*.workers.dev https://*.pages.dev; frame-src 'none'; object-src 'none'")
   await next()
 }

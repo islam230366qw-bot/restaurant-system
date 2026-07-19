@@ -56,7 +56,8 @@ cd..
 echo [7] إنشاء مستخدم مدير...
 echo     - يرجى إدخال كلمة مرور المدير
 set /p adminpass="كلمة المرور: "
-npx wrangler d1 execute restaurant-db --remote --command="INSERT INTO users (username, password_hash, full_name, role) VALUES ('admin', '\$2a\$10\$dummyhash', 'مدير النظام', 'manager');" >nul 2>&1
+for /f "tokens=*" %%i in ('node -e "const bcrypt=require('./worker/node_modules/bcryptjs');const h=bcrypt.hashSync(process.argv[1],10);process.stdout.write(h)" "%adminpass%"') do set hashed=%%i
+npx wrangler d1 execute restaurant-db --remote --command="INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES ('admin', '%hashed%', 'مدير النظام', 'manager');" >nul 2>&1
 echo.
 echo ============================================
 echo   تم النشر بنجاح!

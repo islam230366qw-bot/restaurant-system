@@ -39,11 +39,11 @@ export default function Layout() {
   useEffect(() => {
     let mounted = true
     if (user?.role === 'manager') {
-      api.inventory.getLowStock().then((res: any) => { if (mounted) setLowStockCount(res?.length || 0) }).catch(() => {})
-      api.auth.getUsers().then((res: any) => { if (mounted) setPendingUsersCount(res?.filter((u: any) => !u.is_active && u.role === 'cashier')?.length || 0) }).catch(() => {})
+      api.inventory.getLowStock().then((res: any) => { if (mounted) setLowStockCount(res?.length || 0) }).catch((err) => console.error('Failed to load low stock:', err))
+      api.auth.getUsers().then((res: any) => { if (mounted) setPendingUsersCount(res?.filter((u: any) => !u.is_active && u.role === 'cashier')?.length || 0) }).catch((err) => console.error('Failed to load users:', err))
     }
     return () => { mounted = false }
-  }, [])
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()
@@ -86,7 +86,7 @@ export default function Layout() {
                 to={link.to}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                  location.pathname === link.to
+                  location.pathname === link.to || (link.to !== '/' && location.pathname.startsWith(link.to))
                     ? 'bg-green-50 text-green-700 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}

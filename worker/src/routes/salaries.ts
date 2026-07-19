@@ -54,9 +54,13 @@ app.post('/', auth, requireRole('manager'), async (c) => {
 
   const db = getDB(c.env)
 
-  const employee = await db.prepare('SELECT id FROM employees WHERE id = ?').bind(employeeId).first()
+  const employee = await db.prepare('SELECT id, monthly_salary FROM employees WHERE id = ?').bind(employeeId).first<{ id: number; monthly_salary: number }>()
   if (!employee) {
     return c.json({ error: 'الموظف غير موجود' }, 404)
+  }
+
+  if (amount > employee.monthly_salary) {
+    return c.json({ error: `المبلغ (${amount}) يتجاوز الراتب الشهري (${employee.monthly_salary})` }, 400)
   }
 
   const existing = await db.prepare(

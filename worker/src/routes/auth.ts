@@ -13,7 +13,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 
 async function checkRateLimitD1(db: D1Database, ip: string): Promise<boolean> {
   const now = Date.now()
-  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  const windowStart = Math.floor(now / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS
   await db.exec(`CREATE TABLE IF NOT EXISTS _rate_limits (
     ip TEXT NOT NULL,
     window_start INTEGER NOT NULL,
@@ -21,7 +21,7 @@ async function checkRateLimitD1(db: D1Database, ip: string): Promise<boolean> {
     PRIMARY KEY (ip, window_start)
   )`)
   const row = await db.prepare(
-    'SELECT count FROM _rate_limits WHERE ip = ? AND window_start > ?'
+    'SELECT count FROM _rate_limits WHERE ip = ? AND window_start = ?'
   ).bind(ip, windowStart).first<{ count: number }>()
   if (!row) {
     await db.prepare(
@@ -33,6 +33,29 @@ async function checkRateLimitD1(db: D1Database, ip: string): Promise<boolean> {
   await db.prepare(
     'UPDATE _rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?'
   ).bind(ip, windowStart).run()
+  return true
+}
+
+const REFRESH_RATE_LIMIT_MAX = 10
+const REFRESH_RATE_LIMIT_WINDOW_MS = 60_000
+
+async function checkRefreshRateLimit(db: D1Database, ip: string): Promise<boolean> {
+  const windowStart = Math.floor(Date.now() / REFRESH_RATE_LIMIT_WINDOW_MS) * REFRESH_RATE_LIMIT_WINDOW_MS
+  await db.exec(`CREATE TABLE IF NOT EXISTS _refresh_rate_limits (
+    ip TEXT NOT NULL,
+    window_start INTEGER NOT NULL,
+    count INTEGER DEFAULT 1,
+    PRIMARY KEY (ip, window_start)
+  )`)
+  const row = await db.prepare(
+    'SELECT count FROM _refresh_rate_limits WHERE ip = ? AND window_start = ?'
+  ).bind(ip, windowStart).first<{ count: number }>()
+  if (!row) {
+    await db.prepare('INSERT OR REPLACE INTO _refresh_rate_limits (ip, window_start, count) VALUES (?, ?, 1)').bind(ip, windowStart).run()
+    return true
+  }
+  if (row.count >= REFRESH_RATE_LIMIT_MAX) return false
+  await db.prepare('UPDATE _refresh_rate_limits SET count = count + 1 WHERE ip = ? AND window_start = ?').bind(ip, windowStart).run()
   return true
 }
 
@@ -154,6 +177,12 @@ app.get('/me', auth, async (c) => {
 })
 
 app.post('/refresh', async (c) => {
+  const ip = c.req.header('CF-Connecting-IP') || c.req.header('x-forwarded-for') || 'unknown'
+  const db = getDB(c.env)
+  if (!await checkRefreshRateLimit(db, ip)) {
+    return c.json({ error: 'محاولات كثيرة جداً. حاول بعد دقيقة' }, 429)
+  }
+
   const cookie = c.req.header('Cookie') || ''
   const match = cookie.match(/refresh_token=([^;]+)/)
   if (!match) {
@@ -172,7 +201,6 @@ app.post('/refresh', async (c) => {
     const userId = payload.userId as number
     const jti = payload.jti as string
 
-    const db = getDB(c.env)
     const blacklisted = await db.prepare(
       "SELECT id FROM token_blacklist WHERE jti = ? AND expires_at > datetime('now')"
     ).bind(jti).first()
@@ -180,6 +208,14 @@ app.post('/refresh', async (c) => {
     if (blacklisted) {
       return c.json({ error: 'غير مصرح به' }, 401)
     }
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    await db.prepare(
+      'INSERT OR IGNORE INTO token_blacklist (jti, token_type, expires_at) VALUES (?, ?, ?)'
+    ).bind(jti, 'refresh', expiresAt).run()
+
+    const newJti = crypto.randomUUID()
+    await db.prepare('UPDATE users SET current_jti = ? WHERE id = ?').bind(newJti, userId).run()
 
     const user = await db.prepare(
       'SELECT id, username, full_name, role FROM users WHERE id = ?'
@@ -190,6 +226,9 @@ app.post('/refresh', async (c) => {
     }
 
     const accessToken = await signAccessToken(user, secret)
+    const newRefreshToken = await signRefreshToken(userId, newJti, secret)
+
+    c.header('Set-Cookie', `refresh_token=${newRefreshToken}; HttpOnly; Secure; SameSite=None; Path=/api/auth; Max-Age=${7 * 24 * 60 * 60}; Partitioned`)
 
     return c.json({
       token: accessToken,
@@ -272,6 +311,15 @@ app.post('/register', auth, requireRole('manager'), async (c) => {
     'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)'
   ).bind(username, passwordHash, fullName, role).run()
 
+  if (role === 'cashier') {
+    const existing = await db.prepare('SELECT id FROM employees WHERE full_name = ?').bind(fullName).first()
+    if (!existing) {
+      await db.prepare(
+        'INSERT INTO employees (full_name, position, monthly_salary, hire_date, is_active) VALUES (?, ?, ?, ?, 1)'
+      ).bind(fullName, 'كاشير', 0, new Date().toISOString().split('T')[0]).run()
+    }
+  }
+
   return c.json({ message: 'تم إنشاء المستخدم بنجاح' }, 201)
 })
 
@@ -320,6 +368,10 @@ app.patch('/users/:id/toggle-active', auth, requireRole('manager'), async (c) =>
   const id = parseInt(c.req.param('id'))
   if (!id || isNaN(id)) return c.json({ error: 'معرف غير صالح' }, 400)
   const db = getDB(c.env)
+  const currentUserId = c.get('userId') as number
+  if (id === currentUserId) {
+    return c.json({ error: 'لا يمكنك تعطيل حسابك الخاص' }, 400)
+  }
 
   const user = await db.prepare('SELECT id, is_active, full_name, role FROM users WHERE id = ?').bind(id).first<{ id: number; is_active: number; full_name: string; role: string }>()
   if (!user) {

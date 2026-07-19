@@ -52,14 +52,14 @@ export default function OrderScreen() {
     try {
       const items = await api.menu.getActive()
       setMenuItems(items)
-    } catch {}
+    } catch (err) { console.error('loadData menu error:', err) }
     try {
       const sett = await api.settings.get()
       setSettings(sett)
       if (sett?.payment_methods) {
         setPaymentMethod(sett.payment_methods.split(',')[0])
       }
-    } catch {}
+    } catch (err) { console.error('loadData settings error:', err) }
   }
 
   const filteredItems = menuItems.filter((item) =>
@@ -160,8 +160,13 @@ export default function OrderScreen() {
     if (!couponCode.trim()) return
     try {
       const coupon = await api.coupons.getByCode(couponCode.trim())
+      if (coupon.min_order > 0 && subtotal < coupon.min_order) {
+        setCouponError(`الحد الأدنى للطلب: ${coupon.min_order} ج.م`)
+        return
+      }
       setDiscountInfo(coupon)
-    } catch {
+    } catch (err) {
+      console.error('Coupon validation error:', err)
       setCouponError('الكوبون غير صالح')
     }
   }
@@ -200,7 +205,7 @@ export default function OrderScreen() {
         customerAddress: customerAddress.trim(),
         paymentMethod,
         items: orderItems.map((item) => ({
-          name: item.itemName,
+          name: item.optionName ? `${item.itemName} (${item.optionName})` : item.itemName,
           qty: item.quantity,
           price: item.unitPrice,
           total: item.subtotal,

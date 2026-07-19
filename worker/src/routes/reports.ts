@@ -38,8 +38,13 @@ app.get('/sales', auth, requireRole('manager'), async (c) => {
 
     query += ' ORDER BY o.created_at DESC'
 
+    const limit = Math.min(500, Math.max(1, parseInt(c.req.query('limit') || '100') || 100))
+    const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1)
+    query += ' LIMIT ? OFFSET ?'
+    params.push(limit, (page - 1) * limit)
+
     const data = await db.prepare(query).bind(...params).all()
-    return c.json(data.results)
+    return c.json({ data: data.results, page, limit })
   } catch {
     return c.json({ error: 'خطأ في تحميل التقرير' }, 500)
   }

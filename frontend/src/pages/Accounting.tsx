@@ -467,7 +467,7 @@ function SalariesTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">المبلغ (ج.م)</label>
-                <input type="number" step="0.01" className="input-field" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                <input type="number" step="0.01" className="input-field" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} max={(() => { const emp = employees.find((e: any) => e.id === parseInt(form.employeeId)); return emp?.monthly_salary || '' })()} required />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">الشهر (YYYY-MM)</label>

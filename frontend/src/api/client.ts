@@ -2,10 +2,13 @@ const API_BASE = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API
   ? import.meta.env.VITE_API_BASE
   : 'https://restaurant-api.restaurant-system-api.workers.dev/api'
 
-let accessToken: string | null = null
+let accessToken: string | null = (() => {
+  try { return sessionStorage.getItem('access_token') } catch { return null }
+})()
 
 export function setAccessToken(t: string | null) {
   accessToken = t
+  try { if (t) sessionStorage.setItem('access_token', t); else sessionStorage.removeItem('access_token') } catch {}
 }
 
 export function getAccessToken(): string | null {
@@ -96,7 +99,8 @@ async function attemptRefresh(): Promise<boolean> {
       return true
     }
     return false
-  } catch {
+  } catch (err) {
+    console.error('Token refresh error:', err)
     return false
   }
 }

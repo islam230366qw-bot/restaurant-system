@@ -72,7 +72,12 @@ async function run() {
   } catch(e) { console.log('  - تعذر النشر حالياً. جرب لاحقًا'); }
 
   console.log('\n[7] إنشاء أول مستخدم...');
-  const bcrypt = require(path.join(__dirname, 'worker', 'node_modules', 'bcryptjs'));
+  const bcryptPath = path.join(__dirname, 'worker', 'node_modules', 'bcryptjs');
+  let bcrypt;
+  try { bcrypt = require(bcryptPath); } catch {
+    execSync('cd worker && npm install', { stdio: 'pipe' });
+    bcrypt = require(bcryptPath);
+  }
   const password = 'admin' + Math.floor(Math.random() * 10000);
   const hash = bcrypt.hashSync(password, 10);
   try {

@@ -45,6 +45,7 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
     unitPriceSnapshot: number
     quantity: number
     subtotal: number
+    optionNameSnapshot: string | null
   }[] = []
 
   for (const item of items) {
@@ -80,6 +81,7 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
       unitPriceSnapshot: unitPrice,
       quantity,
       subtotal: itemSubtotal,
+      optionNameSnapshot: item.optionName || null,
     })
   }
 
@@ -169,15 +171,16 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
   for (const itemData of orderItemsData) {
     batchStmts.push(
       db.prepare(
-        `INSERT INTO order_items (order_id, menu_item_id, item_name_snapshot, unit_price_snapshot, quantity, subtotal)
-         VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO order_items (order_id, menu_item_id, item_name_snapshot, unit_price_snapshot, quantity, subtotal, option_name_snapshot)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         orderId,
         itemData.menuItemId,
         itemData.itemNameSnapshot,
         itemData.unitPriceSnapshot,
         itemData.quantity,
-        itemData.subtotal
+        itemData.subtotal,
+        itemData.optionNameSnapshot
       )
     )
 
@@ -199,10 +202,14 @@ app.post('/', auth, requireRole('manager', 'cashier'), async (c) => {
   }
 
   if (batchStmts.length > 0) {
-    const batchResults = await db.batch(batchStmts)
-    const someFailed = batchResults.some((r: any) => r.error)
-    if (someFailed) {
-      return c.json({ error: 'فشل في حفظ تفاصيل الطلب. تم إلغاء العملية.' }, 500)
+    const CHUNK_SIZE = 25
+    for (let i = 0; i < batchStmts.length; i += CHUNK_SIZE) {
+      const chunk = batchStmts.slice(i, i + CHUNK_SIZE)
+      const batchResults = await db.batch(chunk)
+      const someFailed = batchResults.some((r: any) => r.error)
+      if (someFailed) {
+        return c.json({ error: 'فشل في حفظ تفاصيل الطلب. تم إلغاء العملية.' }, 500)
+      }
     }
   }
 
