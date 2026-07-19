@@ -2,15 +2,18 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const crypto = require('crypto');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((r) => rl.question(q, r));
 
-function simpleHash(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 32, 'sha256').toString('hex');
-  return `$2a$10$${salt}$${hash}`;
+function execSql(sql) {
+  const tmpFile = path.join(__dirname, `_tmp_sql_${Date.now()}.sql`);
+  fs.writeFileSync(tmpFile, sql, 'utf8');
+  try {
+    execSync(`npx wrangler d1 execute restaurant-db --remote --file="${tmpFile}"`, { stdio: 'pipe' });
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
 }
 
 async function run() {
@@ -69,10 +72,11 @@ async function run() {
   } catch(e) { console.log('  - تعذر النشر حالياً. جرب لاحقًا'); }
 
   console.log('\n[7] إنشاء أول مستخدم...');
+  const bcrypt = require(path.join(__dirname, 'worker', 'node_modules', 'bcryptjs'));
   const password = 'admin' + Math.floor(Math.random() * 10000);
-  const hash = simpleHash(password);
+  const hash = bcrypt.hashSync(password, 10);
   try {
-    execSync(`npx wrangler d1 execute restaurant-db --remote --command="INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES ('admin', '${hash}', 'مدير النظام', 'manager');"`, { stdio: 'pipe' });
+    execSql(`INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES ('admin', '${hash.replace(/'/g, "''")}', 'مدير النظام', 'manager');`);
     console.log('  ✓ تم إنشاء المدير');
   } catch(e) { console.log('  - (موجود مسبقًا)'); }
 

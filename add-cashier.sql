@@ -1,1 +1,2 @@
-INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES ('cashier1', '$2a$10$EpQzAXcbBNvgN/mpC94Xt.0WFFmhC6RCvk8QExy8EpGl8IAnpr0Ja', 'كاشير', 'cashier');
+-- ملاحظة أمنية: استخدم add-cashier.js بدلاً من هذا الملف (يطلب كلمة السر)
+-- قنات الآمن: node add-cashier.js

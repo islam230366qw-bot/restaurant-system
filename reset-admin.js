@@ -1,21 +1,26 @@
+const { execSync } = require('child_process');
 const path = require('path');
-const fs = require('fs');
+const readline = require('readline');
 
-const bcryptPath = path.join(__dirname, 'worker', 'node_modules', 'bcryptjs');
-const bcrypt = require(bcryptPath);
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q) => new Promise((r) => rl.question(q, r));
 
-const password = 'admin123';
-const hash = bcrypt.hashSync(password, 10);
+const bcrypt = require(path.join(__dirname, 'worker', 'node_modules', 'bcryptjs'));
 
-const sql = `DELETE FROM users WHERE username = 'admin' OR username = 'admin123';
-INSERT INTO users (username, password_hash, full_name, role) VALUES ('admin', '${hash}', 'مدير النظام', 'manager');`;
+async function main() {
+  const password = await ask('ادخل كلمة المرور الجديدة للمدير: ');
+  const hash = bcrypt.hashSync(password, 10);
+  const sql = `DELETE FROM users WHERE username = 'admin' OR username = 'admin123';\nINSERT INTO users (username, password_hash, full_name, role) VALUES ('admin', '${hash.replace(/'/g, "''")}', 'مدير النظام', 'manager');`;
+  const sqlFile = path.join(__dirname, `_tmp_reset_${Date.now()}.sql`);
+  require('fs').writeFileSync(sqlFile, sql, 'utf8');
+  try {
+    execSync(`npx wrangler d1 execute restaurant-db --remote --file="${sqlFile}"`, { stdio: 'pipe', cwd: __dirname });
+    console.log('\n✅ تم إعادة تعيين مستخدم admin');
+  } catch (e) {
+    console.log('فشل:', e.stderr?.toString() || e.message);
+  }
+  try { require('fs').unlinkSync(sqlFile); } catch {}
+  rl.close();
+}
 
-fs.writeFileSync(path.join(__dirname, 'reset-admin.sql'), sql, 'utf8');
-
-console.log('✅ تم إنشاء reset-admin.sql');
-console.log('');
-console.log('نفذ الأمر ده في CMD:');
-console.log('npx wrangler d1 execute restaurant-db --file=./reset-admin.sql --remote');
-console.log('');
-console.log('المستخدم: admin');
-console.log('كلمة السر: ' + password);
+main();

@@ -93,11 +93,21 @@ app.post('/login', async (c) => {
     return c.json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' }, 401)
   }
 
+  const existing = await db.prepare('SELECT current_jti FROM users WHERE id = ?').bind(user.id).first<{ current_jti: string | null }>()
+  if (existing?.current_jti) {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    await db.prepare(
+      'INSERT OR IGNORE INTO token_blacklist (jti, token_type, expires_at) VALUES (?, ?, ?)'
+    ).bind(existing.current_jti, 'refresh', expiresAt).run()
+  }
+
   const secret = new TextEncoder().encode(c.env.JWT_SECRET)
   const accessToken = await signAccessToken(user, secret)
 
   const jti = crypto.randomUUID()
   const refreshToken = await signRefreshToken(user.id, jti, secret)
+
+  await db.prepare('UPDATE users SET current_jti = ? WHERE id = ?').bind(jti, user.id).run()
 
   c.header('Set-Cookie', `refresh_token=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/api/auth; Max-Age=${7 * 24 * 60 * 60}; Partitioned`)
 
