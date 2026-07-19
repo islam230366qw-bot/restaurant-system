@@ -351,17 +351,6 @@ export const api = {
     },
   },
 
-  upload: {
-    image: (file: File) => {
-      const formData = new FormData()
-      formData.append('image', file)
-      return request<{ key: string; message: string }>('/upload', {
-        method: 'POST',
-        body: formData,
-      })
-    },
-  },
-
   subscription: {
     getStatus: () => request<{ trial_mode: number; trial_until: string | null; subscription_status: string; subscription_expires_at: string | null }>('/settings/subscription'),
     extend: (months: number) => request<{ message: string }>('/settings/subscription/extend', {
@@ -374,5 +363,5 @@ export const api = {
 export function getImageUrl(key: string | null | undefined): string {
   if (!key) return ''
   if (key.startsWith('http')) return key
-  return `${API_BASE}/upload/${key}`
+  return key
 }

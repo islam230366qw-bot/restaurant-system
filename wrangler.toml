@@ -8,6 +8,6 @@ binding = "DB"
 database_name = "restaurant-db"
 database_id = "c86793b3-81ef-4610-b447-06647066884e"
 
-[[r2_buckets]]
-binding = "RESTAURANT_IMAGES"
-bucket_name = "restaurant-images"
+# [[r2_buckets]]
+# binding = "RESTAURANT_IMAGES"
+# bucket_name = "restaurant-images"

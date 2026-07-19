@@ -15,14 +15,12 @@ import profitRoutes from './routes/profit'
 import reportsRoutes from './routes/reports'
 import settingsRoutes from './routes/settings'
 import dashboardRoutes from './routes/dashboard'
-import uploadRoutes from './routes/upload'
 import couponsRoutes from './routes/coupons'
 import inventoryRoutes from './routes/inventory'
 
 export type Env = {
   DB: D1Database
   JWT_SECRET: string
-  RESTAURANT_IMAGES?: R2Bucket
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -79,7 +77,6 @@ app.route('/api/profit', profitRoutes)
 app.route('/api/reports', reportsRoutes)
 app.route('/api/settings', settingsRoutes)
 app.route('/api/dashboard', dashboardRoutes)
-app.route('/api/upload', uploadRoutes)
 app.route('/api/coupons', couponsRoutes)
 app.route('/api/inventory', inventoryRoutes)
 
