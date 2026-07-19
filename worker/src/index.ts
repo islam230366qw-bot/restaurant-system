@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { bodyLimit, validateContentType, securityHeaders } from './middleware/security'
+import { rateLimit } from './middleware/ratelimit'
+import { autoMigrate } from './migrate'
 import { requireSubscription } from './middleware/subscription'
 import authRoutes from './routes/auth'
 import menuRoutes from './routes/menu'
@@ -20,6 +22,7 @@ import inventoryRoutes from './routes/inventory'
 export type Env = {
   DB: D1Database
   JWT_SECRET: string
+  RESTAURANT_IMAGES?: R2Bucket
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -45,9 +48,12 @@ app.use('*', bodyLimit)
 app.use('*', validateContentType)
 app.use('*', securityHeaders)
 
+app.use('/api/*', rateLimit(60, 60_000))
+
 app.use('/api/*', async (c, next) => {
   const db = c.env.DB
   try { await db.exec('PRAGMA foreign_keys = ON') } catch {}
+  await autoMigrate(c.env)
   await next()
 })
 
