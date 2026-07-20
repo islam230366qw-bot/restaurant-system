@@ -47,7 +47,7 @@ app.get('/', auth, requireRole('manager'), async (c) => {
   const countQuery = `SELECT COUNT(*) as total FROM expenses e` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '')
   const countParams = params.slice(0, -2)
   const countResult = await db.prepare(countQuery).bind(...countParams).first<{ total: number }>()
-  return c.json({ data: expenses.results, total: countResult?.total || 0, page, limit })
+  return c.json(expenses.results)
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {

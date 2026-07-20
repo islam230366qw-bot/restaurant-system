@@ -44,7 +44,7 @@ app.get('/sales', auth, requireRole('manager'), async (c) => {
     params.push(limit, (page - 1) * limit)
 
     const data = await db.prepare(query).bind(...params).all()
-    return c.json({ data: data.results, page, limit })
+    return c.json(data.results)
   } catch {
     return c.json({ error: 'خطأ في تحميل التقرير' }, 500)
   }

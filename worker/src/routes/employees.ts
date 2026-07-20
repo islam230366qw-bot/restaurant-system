@@ -15,7 +15,7 @@ app.get('/', auth, requireRole('manager'), async (c) => {
     'SELECT * FROM employees ORDER BY is_active DESC, full_name LIMIT ? OFFSET ?'
   ).bind(limit, (page - 1) * limit).all()
   const countResult = await db.prepare('SELECT COUNT(*) as total FROM employees').first<{ total: number }>()
-  return c.json({ data: employees.results, total: countResult?.total || 0, page, limit })
+  return c.json(employees.results)
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {

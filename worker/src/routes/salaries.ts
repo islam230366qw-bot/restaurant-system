@@ -42,7 +42,7 @@ app.get('/', auth, requireRole('manager'), async (c) => {
   const countParams = params.slice(0, -2)
   const countQuery = `SELECT COUNT(*) as total FROM salary_payments sp` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '')
   const countResult = await db.prepare(countQuery).bind(...countParams).first<{ total: number }>()
-  return c.json({ data: payments.results, total: countResult?.total || 0, page, limit })
+  return c.json(payments.results)
 })
 
 app.post('/', auth, requireRole('manager'), async (c) => {

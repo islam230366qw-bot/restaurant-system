@@ -218,8 +218,8 @@ function EmployeesTab() {
 
   const loadEmployees = async () => {
     setLoading(true)
-    try { setEmployees(await api.employees.getAll()) }
-    catch { }
+      try { const emps = await api.employees.getAll() as any; setEmployees(Array.isArray(emps) ? emps : (emps as any).data || []) }
+      catch { }
     finally { setLoading(false) }
   }
 
@@ -369,12 +369,13 @@ function SalariesTab() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [pays, emps] = await Promise.all([
+      const [paysRes, empsRes] = await Promise.all([
         api.salaryPayments.getAll(),
         api.employees.getAll(),
-      ])
-      setPayments(pays)
-      setEmployees(emps.filter((e: any) => e.is_active))
+      ]) as any
+      setPayments(Array.isArray(paysRes) ? paysRes : paysRes.data || [])
+      const empArr = Array.isArray(empsRes) ? empsRes : empsRes.data || []
+      setEmployees(empArr.filter((e: any) => e.is_active))
     } catch { }
     finally { setLoading(false) }
   }
