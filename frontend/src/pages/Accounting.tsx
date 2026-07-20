@@ -71,8 +71,8 @@ function ExpensesTab() {
         category: filterCategory || undefined,
         startDate: startDate ? toApiDate(startDate) : undefined,
         endDate: endDate ? toApiDate(endDate) : undefined,
-      })
-      setExpenses(data)
+      }) as any
+      setExpenses(Array.isArray(data) ? data : (data as any).data || [])
     } catch { }
     finally { setLoading(false) }
   }
