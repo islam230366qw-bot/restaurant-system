@@ -30,8 +30,14 @@ export async function auth(c: Context<{ Bindings: Env }>, next: Next) {
       if (blacklisted) {
         return c.json({ error: 'الجلسة منتهية. يرجى تسجيل الدخول مرة أخرى' }, 401)
       }
-      const user = await db.prepare('SELECT current_jti FROM users WHERE id = ?').bind(payload.userId).first<{ current_jti: string | null }>()
-      if (user?.current_jti && user.current_jti !== jti) {
+      const user = await db.prepare('SELECT current_jti, is_active FROM users WHERE id = ?').bind(payload.userId).first<{ current_jti: string | null; is_active: number }>()
+      if (!user) {
+        return c.json({ error: 'المستخدم غير موجود' }, 401)
+      }
+      if (!user.is_active) {
+        return c.json({ error: 'تم تعطيل حسابك. يرجى التواصل مع المدير' }, 401)
+      }
+      if (user.current_jti && user.current_jti !== jti) {
         return c.json({ error: 'تم تسجيل الدخول من جهاز آخر. يرجى إعادة تسجيل الدخول' }, 401)
       }
     }

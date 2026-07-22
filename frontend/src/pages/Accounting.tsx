@@ -71,8 +71,8 @@ function ExpensesTab() {
         category: filterCategory || undefined,
         startDate: startDate ? toApiDate(startDate) : undefined,
         endDate: endDate ? toApiDate(endDate) : undefined,
-      }) as any
-      setExpenses(Array.isArray(data) ? data : (data as any).data || [])
+      })
+      setExpenses(data)
     } catch { }
     finally { setLoading(false) }
   }
@@ -218,7 +218,7 @@ function EmployeesTab() {
 
   const loadEmployees = async () => {
     setLoading(true)
-      try { const emps = await api.employees.getAll() as any; setEmployees(Array.isArray(emps) ? emps : (emps as any).data || []) }
+      try { setEmployees(await api.employees.getAll()) }
       catch { }
     finally { setLoading(false) }
   }
@@ -369,13 +369,12 @@ function SalariesTab() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [paysRes, empsRes] = await Promise.all([
+      const [pays, emps] = await Promise.all([
         api.salaryPayments.getAll(),
         api.employees.getAll(),
-      ]) as any
-      setPayments(Array.isArray(paysRes) ? paysRes : paysRes.data || [])
-      const empArr = Array.isArray(empsRes) ? empsRes : empsRes.data || []
-      setEmployees(empArr.filter((e: any) => e.is_active))
+      ])
+      setPayments(pays)
+      setEmployees(emps.filter((e: any) => e.is_active))
     } catch { }
     finally { setLoading(false) }
   }

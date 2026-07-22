@@ -38,7 +38,7 @@ app.get('/sales', auth, requireRole('manager'), async (c) => {
 
     query += ' ORDER BY o.created_at DESC'
 
-    const limit = Math.min(500, Math.max(1, parseInt(c.req.query('limit') || '100') || 100))
+    const limit = Math.min(1000, Math.max(1, parseInt(c.req.query('limit') || '500') || 500))
     const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1)
     query += ' LIMIT ? OFFSET ?'
     params.push(limit, (page - 1) * limit)

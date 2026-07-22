@@ -246,10 +246,11 @@ export const api = {
   },
 
   reports: {
-    sales: (startDate?: string, endDate?: string) => {
+    sales: (startDate?: string, endDate?: string, limit?: number) => {
       const query = new URLSearchParams()
       if (startDate) query.set('startDate', startDate)
       if (endDate) query.set('endDate', endDate)
+      if (limit) query.set('limit', String(limit))
       return request<any[]>(`/reports/sales?${query}`)
     },
     expenses: (startDate?: string, endDate?: string) => {
@@ -364,8 +365,3 @@ export const api = {
   },
 }
 
-export function getImageUrl(key: string | null | undefined): string {
-  if (!key) return ''
-  if (key.startsWith('http')) return key
-  return key
-}

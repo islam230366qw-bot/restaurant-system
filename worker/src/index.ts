@@ -17,10 +17,12 @@ import settingsRoutes from './routes/settings'
 import dashboardRoutes from './routes/dashboard'
 import couponsRoutes from './routes/coupons'
 import inventoryRoutes from './routes/inventory'
+import uploadRoutes from './routes/upload'
 
 export type Env = {
   DB: D1Database
   JWT_SECRET: string
+  RESTAURANT_IMAGES?: R2Bucket
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -79,6 +81,7 @@ app.route('/api/settings', settingsRoutes)
 app.route('/api/dashboard', dashboardRoutes)
 app.route('/api/coupons', couponsRoutes)
 app.route('/api/inventory', inventoryRoutes)
+app.route('/api/upload', uploadRoutes)
 
 app.get('/', (c) => c.json({ status: 'running', app: 'Restaurant API', frontend: 'https://aff2ce39.restaurant-system-5vy.pages.dev' }))
 

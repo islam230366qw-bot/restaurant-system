@@ -329,8 +329,9 @@ function SaleReportExporter() {
     if (!startDate || !endDate) { toast('يرجى اختيار الفترة الزمنية', 'error'); return }
     setLoading(true)
     try {
-      const raw = await api.reports.sales(startDate, endDate)
-      const flat = raw.map((r: any) => ({
+      const raw = await api.reports.sales(toApiDate(startDate), toApiDate(endDate), 1000)
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
+      const flat = arr.map((r: any) => ({
         'رقم الطلب': r.order_id,
         'العميل': r.customer_name,
         'التليفون': r.customer_phone || '',
@@ -375,8 +376,9 @@ function ExpenseReportExporter() {
     if (!startDate || !endDate) { toast('يرجى اختيار الفترة الزمنية', 'error'); return }
     setLoading(true)
     try {
-      const raw = await api.reports.expenses(startDate, endDate)
-      const flat = raw.map((r: any) => ({
+      const raw = await api.reports.expenses(toApiDate(startDate), toApiDate(endDate))
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
+      const flat = arr.map((r: any) => ({
         'التاريخ': r.expense_date ? formatDate(r.expense_date) : '',
         'التصنيف': r.category || '',
         'البيان': r.description || '',
@@ -411,8 +413,9 @@ function SalaryReportExporter() {
     if (!startDate || !endDate) { toast('يرجى اختيار الفترة الزمنية', 'error'); return }
     setLoading(true)
     try {
-      const raw = await api.reports.salaries(startDate, endDate)
-      const flat = raw.map((r: any) => ({
+      const raw = await api.reports.salaries(toApiDate(startDate), toApiDate(endDate))
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
+      const flat = arr.map((r: any) => ({
         'الموظف': r.employee_name || '',
         'الوظيفة': r.position || '',
         'المبلغ': fmt(r.amount),
@@ -448,9 +451,10 @@ function OrderExporter() {
     if (!startDate || !endDate) { toast('يرجى اختيار الفترة الزمنية', 'error'); return }
     setLoading(true)
     try {
-      const raw = await api.reports.sales(startDate, endDate)
+      const raw = await api.reports.sales(toApiDate(startDate), toApiDate(endDate), 1000)
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
       const seen = new Set<number>()
-      const flat = raw.reduce((acc: any[], r: any) => {
+      const flat = arr.reduce((acc: any[], r: any) => {
         if (!seen.has(r.order_id)) {
           seen.add(r.order_id)
           acc.push({
@@ -489,8 +493,9 @@ function UserExporter() {
   const handleExport = async () => {
     setLoading(true)
     try {
-      const users = await api.auth.getUsers()
-      const flat = users.map((u: any) => ({
+      const raw = await api.auth.getUsers()
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
+      const flat = arr.map((u: any) => ({
         'الاسم': u.full_name || u.fullName || '',
         'اسم المستخدم': u.username || '',
         'الصلاحية': label(u.role),
@@ -523,8 +528,9 @@ function CustomerExporter() {
     if (!startDate || !endDate) { toast('يرجى اختيار الفترة الزمنية', 'error'); return }
     setLoading(true)
     try {
-      const data = await api.reports.customers(startDate, endDate)
-      const flat = data.map((r: any) => ({
+      const raw = await api.reports.customers(toApiDate(startDate), toApiDate(endDate))
+      const arr = Array.isArray(raw) ? raw : (raw as any).data || []
+      const flat = arr.map((r: any) => ({
         'الاسم': r.customer_name || '',
         'رقم الهاتف': r.customer_phone || '',
       }))

@@ -306,22 +306,25 @@ app.patch('/:id/void', auth, requireRole('manager'), async (c) => {
   if (!order) return c.json({ error: 'الطلب غير موجود' }, 404)
   if (order.voided) return c.json({ error: 'الطلب ملغي بالفعل' }, 400)
 
-  await db.prepare('UPDATE orders SET voided = 1, void_reason = \'ملغي يدويا\' WHERE id = ?').bind(id).run()
-
   const items = await db.prepare('SELECT menu_item_id, quantity FROM order_items WHERE order_id = ?').bind(id).all()
   const userId = c.get('userId') as number
+  const stmts: any[] = []
+
   for (const item of items.results as any[]) {
     const menuItem = await db.prepare('SELECT inventory_item_id FROM menu_items WHERE id = ?').bind(item.menu_item_id).first<{ inventory_item_id: number | null }>()
     if (menuItem?.inventory_item_id) {
       const inv = await db.prepare('SELECT id, quantity, name FROM inventory WHERE id = ?').bind(menuItem.inventory_item_id).first<{ id: number; quantity: number; name: string }>()
       if (inv) {
-        await db.prepare('UPDATE inventory SET quantity = quantity + ?, updated_at = datetime(\'now\') WHERE id = ?').bind(item.quantity, menuItem.inventory_item_id).run()
-        await db.prepare(
-          'INSERT INTO inventory_log (item_id, change_type, quantity_change, quantity_before, quantity_after, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).bind(menuItem.inventory_item_id, 'add', item.quantity, inv.quantity, inv.quantity + item.quantity, `إعادة مخزون من الطلب الملغي #${id}`, userId).run()
+        stmts.push(
+          db.prepare('UPDATE inventory SET quantity = quantity + ?, updated_at = datetime(\'now\') WHERE id = ?').bind(item.quantity, menuItem.inventory_item_id),
+          db.prepare('INSERT INTO inventory_log (item_id, change_type, quantity_change, quantity_before, quantity_after, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(menuItem.inventory_item_id, 'add', item.quantity, inv.quantity, inv.quantity + item.quantity, `إعادة مخزون من الطلب الملغي #${id}`, userId)
+        )
       }
     }
   }
+
+  stmts.push(db.prepare('UPDATE orders SET voided = 1, void_reason = \'ملغي يدويا\' WHERE id = ? AND voided = 0').bind(id))
+  await db.batch(stmts)
 
   return c.json({ message: 'تم إلغاء الطلب وإعادة المخزون' })
 })

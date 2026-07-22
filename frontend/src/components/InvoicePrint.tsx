@@ -199,7 +199,7 @@ export default function InvoicePrint({ data, onClose }: { data: InvoiceData; onC
   const handleDirectPrint = async () => {
     setPrinterStatus('جاري الاتصال بالطابعة...')
     try {
-      const device = await (navigator as any).usb.requestDevice({ filters: [] })
+      const device = await (navigator as any).usb.requestDevice({ filters: [{ classCode: 7 }] })
       await device.open()
       await device.selectConfiguration(1)
       await device.claimInterface(0)
